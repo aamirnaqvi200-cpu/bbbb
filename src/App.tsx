@@ -2,15 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import VideoThumbnail from "./components/VideoThumbnail";
 import { ClickWrapper } from "./components/ClickWrapper";
 import { Mail, Instagram } from 'lucide-react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { HeroDesign } from './components/HeroDesign';
 import heroDesktopHtml from './hero/hero-desktop.html?raw';
 import heroMobileHtml from './hero/hero-mobile.html?raw';
 import { useHeroMorph } from './hooks/useHeroMorph';
-
-gsap.registerPlugin(ScrollTrigger);
-ScrollTrigger.config({ ignoreMobileResize: true });
 
 const isMobile = () => window.innerWidth < 768;
 
@@ -75,7 +70,7 @@ const skills = [
 
 function App() {
   const [showContact, setShowContact] = useState(false);
-  const [ready, setReady] = useState(false);
+  const ready = true;
   const [heroHidden, setHeroHidden] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
 
@@ -100,79 +95,54 @@ function App() {
   useHeroMorph(mobile);
 
   useEffect(() => {
-    const heroImages = isMobile()
-      ? ['/mobile/mbbg.webp', '/mobile/mbme.webp']
-      : ['/pc/bg.webp', '/pc/me.webp', '/pc/me 2.webp'];
+    let cancelled = false;
+    let cleanup = () => {};
 
-    const loaded = new Set<string>();
-    const hideLoader = () => {
-      setReady(true);
-      const loader = document.getElementById('initial-loader');
-      if (loader) {
-        loader.classList.add('is-done');
-        setTimeout(() => loader.remove(), 700);
+    const loadAnimations = async () => {
+      const [{ gsap }, { ScrollTrigger }] = await Promise.all([
+        import('gsap'),
+        import('gsap/ScrollTrigger'),
+      ]);
+      if (cancelled || !portfolioSectionRef.current) return;
+
+      gsap.registerPlugin(ScrollTrigger);
+      ScrollTrigger.config({ ignoreMobileResize: true });
+      const isMobileView = isMobile();
+      const portfolio = portfolioSectionRef.current;
+
+      if (!isMobileView) {
+        const desktopEls = gsap.utils.toArray('.desktop-image');
+        const desktopParallaxEls = desktopEls.filter((el: Element) => !el.classList.contains('no-parallax-y'));
+        gsap.timeline({
+          scrollTrigger: { trigger: portfolio, start: 'top bottom', end: 'center top', scrub: 2 },
+        }).to(desktopParallaxEls, { y: 200, ease: 'power1.out' });
       }
+
+      portfolio.style.willChange = 'transform';
+      gsap.to(portfolio, {
+        y: () => isMobileView ? -window.innerHeight * 1.5 : -900,
+        scrollTrigger: { trigger: portfolio, start: 'top bottom', end: 'bottom top', scrub: isMobileView ? 0 : 2 },
+      });
+
+      ScrollTrigger.create({
+        trigger: portfolio, start: 'center bottom', fastScrollEnd: true,
+        onEnter: () => setShowContact(true), onLeaveBack: () => setShowContact(false),
+      });
+
+      ScrollTrigger.create({
+        trigger: portfolio, start: 'top top', end: 'top top',
+        onEnter: () => setHeroHidden(true), onLeaveBack: () => setHeroHidden(false),
+      });
+
+      cleanup = () => ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
     };
-    const checkDone = () => {
-      if (loaded.size === heroImages.length) {
-        requestAnimationFrame(() => setTimeout(hideLoader, 100));
-      }
+
+    const frame = requestAnimationFrame(() => requestAnimationFrame(loadAnimations));
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+      cleanup();
     };
-
-    heroImages.forEach((src) => {
-      const img = new Image();
-      img.onload = () => { loaded.add(src); checkDone(); };
-      img.onerror = () => { loaded.add(src); checkDone(); };
-      img.src = src;
-    });
-
-    const timeout = setTimeout(() => {
-      hideLoader();
-    }, 2000);
-
-    return () => clearTimeout(timeout);
-  }, []);
-
-  useEffect(() => {
-    ScrollTrigger.getAll().forEach(t => t.kill());
-    if (!portfolioSectionRef.current) return;
-
-    const isMobileView = isMobile();
-
-    // Desktop-only: parallax on hero image layers. Skipping this on mobile
-    // avoids ScrollTrigger creating a scrubbed timeline that fights the
-    // mobile browser's scroll handling (a major source of freezing).
-    if (!isMobileView) {
-      const desktopEls = gsap.utils.toArray(".desktop-image");
-      const desktopParallaxEls = desktopEls.filter((el: Element) => !el.classList.contains('no-parallax-y'));
-      gsap.timeline({
-        scrollTrigger: { trigger: portfolioSectionRef.current, start: "top bottom", end: "center top", scrub: 2 }
-      }).to(desktopParallaxEls, { y: 200, ease: "power1.out" });
-    }
-
-    // Slide the portfolio up to reveal the contact section behind it.
-    // On mobile we use a lighter setup: will-change:transform keeps the
-    // slide on the GPU compositor layer (no repaint), and the scrub value
-    // is higher so it doesn't fight the native scroller as aggressively.
-    if (portfolioSectionRef.current) {
-      portfolioSectionRef.current.style.willChange = 'transform';
-    }
-    gsap.to(portfolioSectionRef.current, {
-      y: () => isMobileView ? -window.innerHeight * 1.5 : -900,
-      scrollTrigger: { trigger: portfolioSectionRef.current, start: "top bottom", end: "bottom top", scrub: isMobileView ? 0 : 2 }
-    });
-
-    ScrollTrigger.create({
-      trigger: portfolioSectionRef.current, start: "center bottom", fastScrollEnd: true,
-      onEnter: () => setShowContact(true), onLeaveBack: () => setShowContact(false),
-    });
-
-    ScrollTrigger.create({
-      trigger: portfolioSectionRef.current, start: 'top top', end: 'top top',
-      onEnter: () => setHeroHidden(true), onLeaveBack: () => setHeroHidden(false),
-    });
-
-    return () => { ScrollTrigger.getAll().forEach(t => t.kill()); };
   }, []);
 
   const vh = (n: number) => mobile ? `${n}svh` : `${n}vh`;
@@ -185,12 +155,9 @@ function App() {
         scrollTo="#portfolio"
         glowColor="rgba(255,255,255,0.15)"
         noHover
-        style={{
-          backgroundImage: `url('/pc/bg.webp')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'left center',
-        }}
+        style={{ overflow: 'hidden' }}
       >
+        <img src="/pc/bg.webp" alt="" fetchPriority="high" decoding="async" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'left center' }} />
         <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.08)' }} />
       </ClickWrapper>
 
@@ -200,12 +167,9 @@ function App() {
         scrollTo="#portfolio"
         glowColor="rgba(255,255,255,0.15)"
         noHover
-        style={{
-          backgroundImage: `url('/mobile/mbbg.webp')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
+        style={{ overflow: 'hidden' }}
       >
+        <img src="/mobile/mbbg.webp" alt="" fetchPriority="high" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.08)' }} />
       </ClickWrapper>
 
