@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface HeroDesignProps {
   /** Raw HTML of the exported design (imported with `?raw`). */
@@ -30,7 +30,7 @@ export function HeroDesign({ html, width, height, fit = 'cover', group = false, 
   const boxRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const box = boxRef.current;
     const canvas = canvasRef.current;
     if (!box || !canvas) return;

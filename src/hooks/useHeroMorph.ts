@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react';
+import { useEffect } from 'react';
 
 /* ------------------------------------------------------------------ *
  *  HERO MORPH — desktop  ->  tablet
@@ -47,7 +47,7 @@ const range = (v: number, a: number, b: number) => clamp01((v - a) / (b - a));
  * window stays at 60fps.
  */
 export function useHeroMorph(disabled?: boolean) {
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (disabled) return;
     const root = document.documentElement;
     let frame = 0;

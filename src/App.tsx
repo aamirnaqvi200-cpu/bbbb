@@ -202,7 +202,7 @@ function App() {
                       })
                 }}
               >
-                <img src={img.src} alt="" decoding="async" className="w-full h-full object-contain" />
+                <img src={img.src} alt="" decoding="async" fetchPriority="high" className="w-full h-full object-contain" />
               </ClickWrapper>
             ))}
 
@@ -246,7 +246,7 @@ function App() {
                 }}
               >
                 <div className={`w-full h-full ${img.morph === 'figure' ? 'hero-rig-figure' : img.morph === 'me2' ? 'hero-me2' : ''}`}>
-                  <img src={img.src} alt="" decoding="async" className={`${img.isSmall ? 'w-full h-auto' : 'w-full h-full object-contain'} ${img.src.includes('me 2') ? 'hero-img-me2' : 'hero-img-me'}`} />
+                  <img src={img.src} alt="" decoding="async" fetchPriority="high" className={`${img.isSmall ? 'w-full h-auto' : 'w-full h-full object-contain'} ${img.src.includes('me 2') ? 'hero-img-me2' : 'hero-img-me'}`} />
                 </div>
               </ClickWrapper>
             ))}
