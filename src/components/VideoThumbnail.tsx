@@ -50,7 +50,6 @@ export function VideoThumbnail({ src, title, aspectRatio = "video", className = 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isInView, setIsInView] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
   const [hasStartedPlaying, setHasStartedPlaying] = useState(false);
   // Showreel is started by an explicit click (a user gesture), so sound is allowed and expected.
@@ -114,8 +113,7 @@ export function VideoThumbnail({ src, title, aspectRatio = "video", className = 
     }, isStale);
     videoAutoplayQueue.add(async () => {
       if (videoRef.current && nearViewRef.current) {
-        setIsLoading(true);
-        try { await videoRef.current.play(); } catch { setIsLoading(false); }
+        try { await videoRef.current.play(); } catch {}
       }
     }, isStale);
   };
@@ -205,7 +203,6 @@ export function VideoThumbnail({ src, title, aspectRatio = "video", className = 
     if (!container) return;
     const unloadObserver = new IntersectionObserver(([entry]) => {
       if (!entry.isIntersecting && videoRef.current && !isFullscreenRef.current && !isPlayingRef.current) {
-        videoAutoplayQueue.unregisterActive(videoRef.current);
         videoAutoplayQueue.releaseAudio(videoRef.current);
         videoRef.current.removeAttribute('src');
         videoRef.current.load();
@@ -226,18 +223,15 @@ export function VideoThumbnail({ src, title, aspectRatio = "video", className = 
     if (!videoRef.current) return;
     if (isPlaying) { videoRef.current.pause(); setIsPlaying(false); }
     else {
-      if (!videoLoaded) { setIsLoading(true); videoRef.current.src = src; videoRef.current.load(); hasLoadedOnceRef.current = true; }
+      if (!videoLoaded) { videoRef.current.src = src; videoRef.current.load(); hasLoadedOnceRef.current = true; }
       try { setVideoError(false); await videoRef.current.play(); setIsPlaying(true); }
-      catch { setIsLoading(false); setVideoError(true); }
+      catch { setVideoError(true); }
     }
   };
 
-  // Make sure a tile never keeps a "slot" in the concurrency cap after it
-  // leaves the page (e.g. navigating away mid-play).
   useEffect(() => {
     return () => {
       if (videoRef.current) {
-        videoAutoplayQueue.unregisterActive(videoRef.current);
         videoAutoplayQueue.releaseAudio(videoRef.current);
       }
     };
@@ -276,14 +270,6 @@ export function VideoThumbnail({ src, title, aspectRatio = "video", className = 
           onError={() => setThumbnailLoaded(false)} />
       )}
 
-      {/* Fallback placeholder — shown any time we don't yet have a visible thumbnail or playing video */}
-      {!thumbnailLoaded && !hasStartedPlaying && (
-        <div className="absolute inset-0 flex items-center justify-center"
-             style={{ background: 'linear-gradient(135deg, #1a1a1a 0%, #111 100%)' }}>
-          <div className="w-6 h-6 border border-white/20 border-t-white/50 rounded-full animate-spin" />
-        </div>
-      )}
-
       {/* Video */}
       {!isUnsupportedFormat && (
         <video ref={videoRef}
@@ -291,21 +277,13 @@ export function VideoThumbnail({ src, title, aspectRatio = "video", className = 
           loop playsInline preload="auto" muted={isMuted}
           onLoadedData={() => setVideoLoaded(true)}
           onPlay={() => {
-            setIsPlaying(true); setHasStartedPlaying(true); setIsLoading(false); setVideoError(false);
-            // Counts this tile against the concurrent-decoder cap, evicting
-            // (pausing) the oldest active tile if it's now over the limit.
-            // The showreel is excluded — it's started by an explicit click,
-            // not autoplay, and must never be silently paused just because
-            // grid tiles happened to autoplay into view around it.
-            if (videoRef.current && !isShowreel) videoAutoplayQueue.registerActive(videoRef.current);
+            setIsPlaying(true); setHasStartedPlaying(true); setVideoError(false);
           }}
           onPause={() => {
             setIsPlaying(false);
-            if (videoRef.current && !isShowreel) videoAutoplayQueue.unregisterActive(videoRef.current);
           }}
           onEnded={() => {
             setIsPlaying(false);
-            if (videoRef.current && !isShowreel) videoAutoplayQueue.unregisterActive(videoRef.current);
           }}
           onVolumeChange={() => {
             // Fires whenever .muted changes — from the mute button, from
@@ -331,17 +309,9 @@ export function VideoThumbnail({ src, title, aspectRatio = "video", className = 
           }}
           onLoadedMetadata={() => { if (videoRef.current) setDuration(videoRef.current.duration); }}
           onError={() => {
-            setIsLoading(false); setIsPlaying(false); setVideoError(true);
-            if (videoRef.current && !isShowreel) videoAutoplayQueue.unregisterActive(videoRef.current);
+            setIsPlaying(false); setVideoError(true);
           }}
         />
-      )}
-
-      {/* Loading */}
-      {isLoading && !isUnsupportedFormat && (
-        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-20">
-          <div className="w-10 h-10 border border-white/20 border-t-white/70 rounded-full animate-spin" />
-        </div>
       )}
 
       {/* Gradient overlay — always on for mobile (where the title/controls above are always visible too, and need the contrast); hover-reveal only on desktop */}
@@ -365,7 +335,7 @@ export function VideoThumbnail({ src, title, aspectRatio = "video", className = 
         <div className="absolute inset-0 flex items-center justify-center z-20">
           <div className={`rounded-full flex items-center justify-center backdrop-blur-sm transition-all duration-300 border border-white/20
             ${aspectRatio === 'vertical' ? (isFullscreen ? 'w-20 h-20' : 'w-11 h-11') : (isFullscreen ? 'w-24 h-24' : 'w-14 h-14')}
-            ${(isPlaying && !isLoading) ? 'opacity-0 group-hover:opacity-100 bg-black/40' : 'opacity-100 bg-black/35'}
+            ${isPlaying ? 'opacity-0 group-hover:opacity-100 bg-black/40' : 'opacity-100 bg-black/35'}
           `}>
             {isPlaying
               ? <Pause className={`text-white ${aspectRatio === 'vertical' ? (isFullscreen ? 'w-8 h-8' : 'w-4 h-4') : (isFullscreen ? 'w-10 h-10' : 'w-5 h-5')}`} />

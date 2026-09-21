@@ -11,13 +11,6 @@ interface QueueItem {
 const isMobileDevice =
   typeof window !== 'undefined' && window.innerWidth < 768;
 
-// Phones have a hard, low ceiling on how many <video> elements can be
-// actively decoding at once (typically low single digits) before playback
-// starts glitching or the tab/browser gets killed outright. Desktops have
-// far more headroom, so the cap there mainly guards against pathological
-// cases (e.g. a very wide, multi-column grid with several rows in view).
-const DEFAULT_MAX_CONCURRENT = isMobileDevice ? 2 : 6;
-
 class VideoAutoplayQueue {
   private queue: QueueItem[] = [];
   private isProcessing = false;
@@ -27,23 +20,6 @@ class VideoAutoplayQueue {
   private isLoadProcessing = false;
   private loadDelay = isMobileDevice ? 120 : 50;
 
-  // Videos currently allowed to be playing, oldest first. Used to enforce
-  // a hard cap on simultaneous decoders — the actual source of the mobile
-  // crashes/glitches, since without a cap a fast scroll can leave many
-  // off-screen videos quietly still playing in the background.
-  //
-  // Only autoplaying grid tiles are registered here (see VideoThumbnail,
-  // which skips register/unregisterActive for the showreel). The showreel
-  // is started by an explicit click, not autoplay, so it must never be
-  // silently paused just because several grid tiles happened to come into
-  // view around the same time.
-  private activeVideos: HTMLVideoElement[] = [];
-  private maxConcurrent = DEFAULT_MAX_CONCURRENT;
-
-  // The one video (if any) currently allowed to play with sound. Unmuting a
-  // tile calls requestAudio, which mutes whichever tile previously held
-  // this slot — otherwise scrolling past an unmuted tile, or unmuting a
-  // second one, would stack multiple audible videos at once.
   private audibleVideo: HTMLVideoElement | null = null;
 
   add(playFunction: Task, isStale: StaleCheck = () => false) {
@@ -103,28 +79,6 @@ class VideoAutoplayQueue {
     this.isLoadProcessing = false;
   }
 
-  // Call once a video actually starts playing. Enforces maxConcurrent by
-  // pausing the least-recently-activated video(s) over the cap. Pausing
-  // fires that video's own onPause handler, which keeps its component
-  // state (isPlaying, etc.) in sync automatically.
-  registerActive(video: HTMLVideoElement) {
-    this.activeVideos = this.activeVideos.filter(v => v !== video);
-    this.activeVideos.push(video);
-    while (this.activeVideos.length > this.maxConcurrent) {
-      const victim = this.activeVideos.shift();
-      if (victim && victim !== video && !victim.paused) {
-        victim.pause();
-      }
-    }
-  }
-
-  unregisterActive(video: HTMLVideoElement) {
-    this.activeVideos = this.activeVideos.filter(v => v !== video);
-  }
-
-  // Call when a video becomes unmuted (or starts playing already unmuted,
-  // e.g. the showreel). Mutes whichever other video previously held the
-  // "audible" slot, then claims it for this one.
   requestAudio(video: HTMLVideoElement) {
     if (this.audibleVideo && this.audibleVideo !== video && !this.audibleVideo.paused) {
       this.audibleVideo.muted = true;
@@ -149,9 +103,6 @@ class VideoAutoplayQueue {
     this.loadDelay = ms;
   }
 
-  setMaxConcurrent(n: number) {
-    this.maxConcurrent = n;
-  }
 }
 
 export const videoAutoplayQueue = new VideoAutoplayQueue();
