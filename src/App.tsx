@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import VideoThumbnail from "./components/VideoThumbnail";
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { ClickWrapper } from "./components/ClickWrapper";
 import { Mail, Instagram } from 'lucide-react';
 import { HeroDesign } from './components/HeroDesign';
-import heroDesktopHtml from './hero/hero-desktop.html?raw';
-import heroMobileHtml from './hero/hero-mobile.html?raw';
 import { useHeroMorph } from './hooks/useHeroMorph';
+
+const VideoThumbnail = lazy(() => import('./components/VideoThumbnail'));
+const heroDesktopHtml = import('./hero/hero-desktop.html?raw').then(m => m.default);
+const heroMobileHtml = import('./hero/hero-mobile.html?raw').then(m => m.default);
 
 const isMobile = () => window.innerWidth < 768;
 
@@ -72,6 +73,7 @@ function App() {
   const [showContact, setShowContact] = useState(false);
   const ready = true;
   const [heroHidden, setHeroHidden] = useState(false);
+  const [heroHtml, setHeroHtml] = useState<{ desktop: string; mobile: string } | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
 
   const portfolioSectionRef = useRef<HTMLDivElement>(null);
@@ -93,6 +95,14 @@ function App() {
   // Skip on mobile — it's a desktop-only effect and its resize listener
   // adds unnecessary work on phones.
   useHeroMorph(mobile);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([heroDesktopHtml, heroMobileHtml]).then(([desktop, mobile]) => {
+      if (!cancelled) setHeroHtml({ desktop, mobile });
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,14 +217,16 @@ function App() {
             ))}
 
             {/* Mobile-only hero design (mobile.html) */}
-            <HeroDesign
-              html={heroMobileHtml}
-              width={HERO_MOBILE.width}
-              height={HERO_MOBILE.height}
-              fit="contain"
-              className="mobile-image hero-image-layer fixed no-parallax-y hero-enter"
-              style={{ inset: 0, width: '100%', height: '100%', zIndex: 20 }}
-            />
+            {heroHtml && (
+              <HeroDesign
+                html={heroHtml.mobile}
+                width={HERO_MOBILE.width}
+                height={HERO_MOBILE.height}
+                fit="contain"
+                className="mobile-image hero-image-layer fixed no-parallax-y hero-enter"
+                style={{ inset: 0, width: '100%', height: '100%', zIndex: 20 }}
+              />
+            )}
           </div>
         )}
 
@@ -252,26 +264,30 @@ function App() {
             ))}
 
             {/* Title — rendered behind me.webp */}
-            <HeroDesign
-              html={heroDesktopHtml}
-              width={HERO_DESKTOP.width}
-              height={HERO_DESKTOP.height}
-              fit="contain"
-              group
-              className="desktop-image hero-image-layer fixed no-parallax-y hero-design-text hide-testimonials hero-enter"
-              style={{ inset: 0, width: '100%', height: '100%', zIndex: 1 }}
-            />
+            {heroHtml && (
+              <HeroDesign
+                html={heroHtml.desktop}
+                width={HERO_DESKTOP.width}
+                height={HERO_DESKTOP.height}
+                fit="contain"
+                group
+                className="desktop-image hero-image-layer fixed no-parallax-y hero-design-text hide-testimonials hero-enter"
+                style={{ inset: 0, width: '100%', height: '100%', zIndex: 1 }}
+              />
+            )}
 
             {/* Testimonials — rendered on top */}
-            <HeroDesign
-              html={heroDesktopHtml}
-              width={HERO_DESKTOP.width}
-              height={HERO_DESKTOP.height}
-              fit="contain"
-              group
-              className="desktop-image hero-image-layer fixed no-parallax-y hero-design-text hide-title hero-enter"
-              style={{ inset: 0, width: '100%', height: '100%', zIndex: 20 }}
-            />
+            {heroHtml && (
+              <HeroDesign
+                html={heroHtml.desktop}
+                width={HERO_DESKTOP.width}
+                height={HERO_DESKTOP.height}
+                fit="contain"
+                group
+                className="desktop-image hero-image-layer fixed no-parallax-y hero-design-text hide-title hero-enter"
+                style={{ inset: 0, width: '100%', height: '100%', zIndex: 20 }}
+              />
+            )}
           </div>
         )}
 
@@ -378,12 +394,14 @@ function App() {
             </ClickWrapper>
             <div id="showreel" className="max-w-5xl mx-auto rounded-2xl overflow-hidden"
                  style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+              <Suspense fallback={null}>
               <VideoThumbnail
                 src="https://cdn.jsdelivr.net/gh/Aamirnaqvi-mal/Videos@main/Portfolio/long/2,5,6,8,9/1.mp4"
                 title="SHOW REEL 2026"
                 isShowreel={true}
                 thumbnailIndex={1}
               />
+              </Suspense>
             </div>
           </div>
 
@@ -401,13 +419,14 @@ function App() {
             </ClickWrapper>
             <div id="social" className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3">
               {socialVideos.map((url, i) => (
+                <Suspense key={i} fallback={null}>
                 <VideoThumbnail
-                  key={i}
                   src={url}
                   title={`REEL ${String(i + 1).padStart(2, '0')}`}
                   aspectRatio="vertical"
                   thumbnailIndex={i + 11}
                 />
+                </Suspense>
               ))}
             </div>
           </div>
@@ -426,13 +445,14 @@ function App() {
             </ClickWrapper>
             <div id="featured" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {featuredVideos.map((url, i) => (
+                <Suspense key={i} fallback={null}>
                 <VideoThumbnail
-                  key={i}
                   src={url}
                   title={`PROJECT ${String(i + 1).padStart(2, '0')}`}
                   isShowreel={false}
                   thumbnailIndex={i + 2}
                 />
+                </Suspense>
               ))}
             </div>
           </div>
