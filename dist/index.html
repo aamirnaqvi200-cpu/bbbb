@@ -12,10 +12,9 @@
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 
-    <!-- Preload critical images only (now optimized: ~100-170KB each instead of 1.5-3.2MB) -->
+    <!-- Prioritize only the hero assets visible at first paint. -->
     <link rel="preload" as="image" href="/pc/bg.webp" media="(min-width: 768px)" fetchpriority="high">
     <link rel="preload" as="image" href="/pc/me.webp" media="(min-width: 768px)" fetchpriority="high">
-    <link rel="preload" as="image" href="/pc/me 2.webp" media="(min-width: 768px)" fetchpriority="high">
     <link rel="preload" as="image" href="/mobile/mbbg.webp" media="(max-width: 767px)" fetchpriority="high">
     <link rel="preload" as="image" href="/mobile/mbme.webp" media="(max-width: 767px)" fetchpriority="high">
 
@@ -45,18 +44,10 @@
       <link href="https://fonts.googleapis.com/css2?family=Akshar:wght@300..700&family=Anton&family=Bebas+Neue&family=IBM+Plex+Sans:ital,wdth@0,75;1,75&display=swap" rel="stylesheet">
     </noscript>
 
-    <script type="module" crossorigin src="/assets/index-Cvx3X2I5.js"></script>
+    <script type="module" crossorigin src="/assets/index-DhOtLtwS.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-mRbK65NF.css">
   </head>
   <body>
     <div id="root"></div>
-    <!-- Pre-React loading overlay: removed once React mounts and hero images are ready -->
-    <div id="initial-loader" style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#f5f2ec;transition:opacity 0.6s cubic-bezier(0.4,0,0.2,1);">
-      <div style="width:32px;height:32px;border:2px solid rgba(201,168,76,0.18);border-top-color:#c9a84c;border-radius:50%;animation:initial-spin 0.7s linear infinite;"></div>
-    </div>
-    <style>
-      @keyframes initial-spin{to{transform:rotate(360deg)}}
-      #initial-loader.is-done{opacity:0;pointer-events:none;}
-    </style>
   </body>
 </html>
